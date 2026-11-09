@@ -31,6 +31,7 @@ const els = {
   toast: $('#toast'),
   mic: $('#btn-mic'),
   micRow: $('.mic-row'),
+  micDebug: $('#mic-debug'),
   lang: $('#btn-lang'),
   autoAdd: $('#auto-add'),
 };
@@ -185,28 +186,69 @@ els.lang.addEventListener('click', () => {
 if (!Recognition) {
   els.micRow.hidden = true;
 } else {
-  // iOS Safari does not always fire `onend` after a result, which used to leave
-  // the app thinking it was still listening (the next tap did nothing).
-  // So every session is fully torn down by us, and every tap starts clean.
-  const MAX_LISTEN_MS = 15000; // safety net if Safari never ends the session
-  let rec = null;
-  let watchdog;
+  // iOS Safari gets into a bad state when start() is called again too soon
+  // after the previous session was aborted. Reuse one recognizer for the whole
+  // page and pause briefly between sessions.
+  const RESTART_DELAY_MS = 300;
+  const NO_RESULT_MS = 8000;
+  const DEBUG_LIMIT = 8;
 
-  function teardown() {
-    clearTimeout(watchdog);
-    if (rec) {
-      rec.onresult = rec.onerror = rec.onend = null;
-      try { rec.abort(); } catch { /* already stopped */ }
-    }
-    rec = null;
-    els.mic.classList.remove('listening');
-    els.mic.setAttribute('aria-pressed', 'false');
+  const rec = new Recognition();
+  rec.interimResults = true;
+  rec.continuous = false; // stops by itself after a pause
+
+  let listening = false;
+  let sawStart = false;
+  let noResultTimer = null;
+  let restartTimer = null;
+  let stoppedAt = 0; // when the last session was aborted/stopped
+  const debugEvents = [];
+
+  // Temporary on-phone diagnostics: last few speech events.
+  function debugEvent(text) {
+    const at = new Date().toLocaleTimeString();
+    debugEvents.push(`${at} ${text}`);
+    if (debugEvents.length > DEBUG_LIMIT) debugEvents.shift();
+    if (els.micDebug) els.micDebug.textContent = debugEvents.join(' · ');
   }
 
-  // Adds whatever was heard (once) and resets the mic.
-  function finish() {
+  if (els.micDebug) {
+    els.micDebug.hidden = false;
+    els.micDebug.textContent = 'mic: no events yet';
+  }
+
+  function setListeningUI(on) {
+    els.mic.classList.toggle('listening', on);
+    els.mic.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
+  function clearNoResultTimer() {
+    clearTimeout(noResultTimer);
+    noResultTimer = null;
+  }
+
+  function armNoResultTimer() {
+    clearNoResultTimer();
+    noResultTimer = setTimeout(() => {
+      debugEvent('timeout');
+      finish('timeout');
+    }, NO_RESULT_MS);
+  }
+
+  function stopRecognition() {
+    try { rec.abort(); } catch { /* already stopped */ }
+  }
+
+  // Adds whatever was heard (once) and resets the mic. `stoppedAt` makes the
+  // next start wait before touching the recognizer again.
+  function finish(reason = 'manual') {
+    if (!listening) return;
+    listening = false;
+    clearNoResultTimer();
     const text = els.input.value.trim();
-    teardown();
+    if (reason !== 'end') stopRecognition();
+    stoppedAt = Date.now();
+    setListeningUI(false);
     if (text) {
       addFinding(text);
       els.input.value = '';
@@ -214,40 +256,65 @@ if (!Recognition) {
   }
 
   function startListening() {
-    teardown(); // always discard any previous session first
+    if (listening || restartTimer) return;
 
-    const session = new Recognition();
-    session.lang = state.lang;
-    session.interimResults = true;
-    session.continuous = false; // stops by itself after a pause
+    const wait = Math.max(0, RESTART_DELAY_MS - (Date.now() - stoppedAt));
+    if (wait > 0) {
+      restartTimer = setTimeout(() => {
+        restartTimer = null;
+        startListening();
+      }, wait);
+      return;
+    }
 
-    session.onresult = (e) => {
-      els.input.value = Array.from(e.results).map((r) => r[0].transcript).join(' ');
-      if (e.results[e.results.length - 1].isFinal) finish();
-    };
-    session.onerror = (e) => {
-      if (e.error === 'network') toast('Mic needs internet — use the keyboard mic');
-      else if (e.error === 'not-allowed') toast('Microphone permission denied');
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') toast(`Mic error: ${e.error}`);
-      teardown();
-    };
-    // Some browsers end without a final result: keep what was heard.
-    session.onend = finish;
-
-    rec = session;
-    els.mic.classList.add('listening');
-    els.mic.setAttribute('aria-pressed', 'true');
-    watchdog = setTimeout(finish, MAX_LISTEN_MS);
+    rec.lang = state.lang;
+    listening = true;
+    sawStart = false;
+    setListeningUI(true);
+    armNoResultTimer();
     try {
-      session.start();
+      rec.start();
     } catch {
-      teardown();
+      listening = false;
+      clearNoResultTimer();
+      stoppedAt = Date.now();
+      stopRecognition();
+      setListeningUI(false);
       toast('Mic busy — tap again');
     }
   }
 
+  rec.onstart = () => {
+    sawStart = true;
+    debugEvent('start');
+  };
+  rec.onaudiostart = () => debugEvent('audiostart');
+  rec.onspeechstart = () => debugEvent('speechstart');
+  rec.onresult = (e) => {
+    const results = Array.from(e.results);
+    const last = results[results.length - 1];
+    debugEvent(`result${last?.isFinal ? '(final)' : ''}`);
+    els.input.value = results.map((r) => r[0].transcript).join(' ');
+    if (last?.isFinal) finish('result');
+    else armNoResultTimer();
+  };
+  rec.onerror = (e) => {
+    debugEvent(`error ${e.error}`);
+    if (e.error === 'network') toast('Mic needs internet — use the keyboard mic');
+    else if (e.error === 'not-allowed') toast('Microphone permission denied');
+    else if (e.error !== 'no-speech' && e.error !== 'aborted') toast(`Mic error: ${e.error}`);
+    finish('error');
+  };
+  // Some browsers end without a final result: keep what was heard. Ignore an
+  // `end` that arrives before the new session's own `start` (stale event).
+  rec.onend = () => {
+    debugEvent('end');
+    if (listening && !sawStart) return;
+    finish('end');
+  };
+
   // Tap while idle → start. Tap while listening → stop and keep what was heard.
-  els.mic.addEventListener('click', () => (rec ? finish() : startListening()));
+  els.mic.addEventListener('click', () => (listening ? finish() : startListening()));
 }
 
 els.list.addEventListener('click', (e) => {

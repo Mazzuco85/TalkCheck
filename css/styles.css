@@ -99,6 +99,19 @@ button.danger { border-color: var(--crit); color: var(--crit); }
 #btn-lang[hidden] { display: none; }
 @keyframes pulse { 50% { opacity: .7; } }
 
+/* Temporary on-phone speech diagnostics. */
+.mic-debug {
+  margin: -4px 0 10px;
+  padding: 6px 8px;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.mic-debug[hidden] { display: none; }
+
 /* Entry */
 #entry-form { display: flex; gap: 8px; }
 #entry-input { flex: 1; min-width: 0; font-size: 18px; padding: 14px; }
