@@ -1,7 +1,7 @@
 // Service worker: caches the app shell so TalkCheck opens with no network.
 // Only static files are cached. Findings are never stored.
 
-const CACHE = 'talkcheck-v3';
+const CACHE = 'talkcheck-v4';
 const ASSETS = [
   './',
   './index.html',

@@ -163,41 +163,69 @@ const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (!Recognition) {
   els.mic.hidden = true;
 } else {
+  // iOS Safari does not always fire `onend` after a result, which used to leave
+  // the app thinking it was still listening (the next tap did nothing).
+  // So every session is fully torn down by us, and every tap starts clean.
+  const MAX_LISTEN_MS = 15000; // safety net if Safari never ends the session
   let rec = null;
+  let watchdog;
 
-  const stopUi = () => {
+  function teardown() {
+    clearTimeout(watchdog);
+    if (rec) {
+      rec.onresult = rec.onerror = rec.onend = null;
+      try { rec.abort(); } catch { /* already stopped */ }
+    }
+    rec = null;
     els.mic.classList.remove('listening');
     els.mic.setAttribute('aria-pressed', 'false');
-    rec = null;
-  };
+  }
 
-  els.mic.addEventListener('click', () => {
-    if (rec) return rec.stop(); // second tap stops listening
+  // Adds whatever was heard (once) and resets the mic.
+  function finish() {
+    const text = els.input.value.trim();
+    teardown();
+    if (text) {
+      addFinding(text);
+      els.input.value = '';
+    }
+  }
 
-    rec = new Recognition();
-    rec.lang = 'pt-BR';
-    rec.interimResults = true;
-    rec.continuous = false; // stops by itself after a pause
+  function startListening() {
+    teardown(); // always discard any previous session first
 
-    rec.onresult = (e) => {
-      const text = Array.from(e.results).map((r) => r[0].transcript).join(' ');
-      els.input.value = text;
-      if (e.results[e.results.length - 1].isFinal) {
-        addFinding(text);
-        els.input.value = '';
-      }
+    const session = new Recognition();
+    session.lang = 'pt-BR';
+    session.interimResults = true;
+    session.continuous = false; // stops by itself after a pause
+
+    session.onresult = (e) => {
+      els.input.value = Array.from(e.results).map((r) => r[0].transcript).join(' ');
+      if (e.results[e.results.length - 1].isFinal) finish();
     };
-    rec.onerror = (e) => {
+    session.onerror = (e) => {
       if (e.error === 'network') toast('Mic needs internet — use the keyboard mic');
       else if (e.error === 'not-allowed') toast('Microphone permission denied');
       else if (e.error !== 'no-speech' && e.error !== 'aborted') toast(`Mic error: ${e.error}`);
+      teardown();
     };
-    rec.onend = stopUi;
+    // Some browsers end without a final result: keep what was heard.
+    session.onend = finish;
 
+    rec = session;
     els.mic.classList.add('listening');
     els.mic.setAttribute('aria-pressed', 'true');
-    rec.start();
-  });
+    watchdog = setTimeout(finish, MAX_LISTEN_MS);
+    try {
+      session.start();
+    } catch {
+      teardown();
+      toast('Mic busy — tap again');
+    }
+  }
+
+  // Tap while idle → start. Tap while listening → stop and keep what was heard.
+  els.mic.addEventListener('click', () => (rec ? finish() : startListening()));
 }
 
 els.list.addEventListener('click', (e) => {
