@@ -23,7 +23,12 @@ const els = {
   copy: $('#btn-copy'),
   reset: $('#btn-reset'),
   toast: $('#toast'),
+  mic: $('#btn-mic'),
+  autoAdd: $('#auto-add'),
 };
+
+// Time without new text before a dictated finding is added automatically.
+const AUTO_ADD_DELAY_MS = 2000;
 
 const PRIORITY_ORDER = { [PRIORITY.CRITICAL]: 0, [PRIORITY.NORMAL]: 1, [PRIORITY.COSMETIC]: 2 };
 const PRIORITY_LABEL = { critical: 'CRIT', normal: 'NORM', cosmetic: 'COSM' };
@@ -125,12 +130,74 @@ function render() {
 
 // --- Events ---------------------------------------------------------------
 
-els.form.addEventListener('submit', (e) => {
-  e.preventDefault();
+let autoAddTimer;
+
+function submitInput() {
+  clearTimeout(autoAddTimer);
   addFinding(els.input.value);
   els.input.value = '';
   els.input.focus();
+}
+
+els.form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  submitInput();
 });
+
+// Auto-add: keyboard dictation has no "finished" event, so we wait for a pause
+// in text changes. Each new word restarts the countdown.
+els.input.addEventListener('input', () => {
+  clearTimeout(autoAddTimer);
+  if (!els.autoAdd.checked || !els.input.value.trim()) return;
+  autoAddTimer = setTimeout(submitInput, AUTO_ADD_DELAY_MS);
+});
+
+// --- In-app mic (Web Speech API) -------------------------------------------
+// One tap: listen → add automatically when speech ends.
+// Browser speech recognition may need a network connection; keyboard
+// dictation remains the offline fallback.
+
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!Recognition) {
+  els.mic.hidden = true;
+} else {
+  let rec = null;
+
+  const stopUi = () => {
+    els.mic.classList.remove('listening');
+    els.mic.setAttribute('aria-pressed', 'false');
+    rec = null;
+  };
+
+  els.mic.addEventListener('click', () => {
+    if (rec) return rec.stop(); // second tap stops listening
+
+    rec = new Recognition();
+    rec.lang = 'pt-BR';
+    rec.interimResults = true;
+    rec.continuous = false; // stops by itself after a pause
+
+    rec.onresult = (e) => {
+      const text = Array.from(e.results).map((r) => r[0].transcript).join(' ');
+      els.input.value = text;
+      if (e.results[e.results.length - 1].isFinal) {
+        addFinding(text);
+        els.input.value = '';
+      }
+    };
+    rec.onerror = (e) => {
+      if (e.error === 'network') toast('Mic needs internet — use the keyboard mic');
+      else if (e.error === 'not-allowed') toast('Microphone permission denied');
+      else if (e.error !== 'no-speech' && e.error !== 'aborted') toast(`Mic error: ${e.error}`);
+    };
+    rec.onend = stopUi;
+
+    els.mic.classList.add('listening');
+    els.mic.setAttribute('aria-pressed', 'true');
+    rec.start();
+  });
+}
 
 els.list.addEventListener('click', (e) => {
   const btn = e.target.closest('.check');

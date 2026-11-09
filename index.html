@@ -27,14 +27,17 @@
     </div>
   </section>
 
+  <button id="btn-mic" type="button" aria-pressed="false">🎙️ <span>Tap and speak</span></button>
+
   <form id="entry-form" autocomplete="off">
     <input id="entry-input" type="text" enterkeyhint="send" autofocus
-           placeholder="🎙️ Speak or type a finding">
+           placeholder="Or type / use keyboard mic">
     <button type="submit">Add</button>
   </form>
 
   <div class="toolbar">
     <span id="counts"></span>
+    <label><input id="auto-add" type="checkbox" checked> Auto-add</label>
     <label><input id="filter-open" type="checkbox"> Open only</label>
     <button id="btn-copy" type="button">Copy all</button>
     <button id="btn-reset" type="button" class="danger">New check</button>

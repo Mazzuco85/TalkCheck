@@ -65,6 +65,22 @@ button.danger { border-color: var(--crit); color: var(--crit); }
 .dot.cosmetic { background: var(--cosm); }
 .dot.done { background: var(--ok); opacity: .6; }
 
+/* In-app mic */
+#btn-mic {
+  width: 100%;
+  min-height: 72px;
+  margin-bottom: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  background: var(--accent);
+  color: #0f172a;
+  border: 0;
+}
+#btn-mic.listening { background: var(--crit); color: #fff; animation: pulse 1.2s infinite; }
+#btn-mic.listening span::after { content: ' — listening…'; }
+#btn-mic[hidden] { display: none; }
+@keyframes pulse { 50% { opacity: .7; } }
+
 /* Entry */
 #entry-form { display: flex; gap: 8px; }
 #entry-input { flex: 1; min-width: 0; font-size: 18px; padding: 14px; }
