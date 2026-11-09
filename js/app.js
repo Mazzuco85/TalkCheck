@@ -93,6 +93,7 @@ function render() {
       li.dataset.id = it.id;
       li.innerHTML = `
         <button class="check" aria-label="Toggle resolved">${it.done ? '✓' : ''}</button>
+        <button class="delete" aria-label="Delete item">✕</button>
         <div class="body">
           <div class="meta">
             <span class="num">#${it.id}</span>
@@ -200,10 +201,20 @@ if (!Recognition) {
 }
 
 els.list.addEventListener('click', (e) => {
-  const btn = e.target.closest('.check');
+  const btn = e.target.closest('.check, .delete');
   if (!btn) return;
-  const it = state.items.find((i) => i.id === Number(btn.closest('.item').dataset.id));
-  it.done = !it.done;
+  const id = Number(btn.closest('.item').dataset.id);
+  const it = state.items.find((i) => i.id === id);
+
+  if (btn.classList.contains('check')) {
+    it.done = !it.done;
+  } else {
+    if (!confirm(`Delete #${id}?\n"${it.text}"`)) return;
+    state.items = state.items.filter((i) => i.id !== id);
+    // Deleting the most recent item (a wrong dictation) frees its number,
+    // so the next finding reuses it and numbering stays continuous.
+    if (id === state.nextId - 1) state.nextId = id;
+  }
   render();
 });
 

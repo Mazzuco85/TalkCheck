@@ -76,6 +76,7 @@ tests/              unit tests for the parser
 - [x] v1.2 — keyword-based priority and ATA chapter suggestion
 - [ ] v1.3 — editable priority/ATA per item, larger vocabulary from real checks
 - [ ] v2 — true push-to-talk with offline in-browser speech recognition
+- [x] v0.3 — delete item, aircraft list limited to Boeing 737 / 767 / 777 / 787
 - [ ] v2.1 — accurate per-aircraft cabin layouts (zones, door positions, class sections)
 
 ## Disclaimer

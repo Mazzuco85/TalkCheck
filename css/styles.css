@@ -111,6 +111,15 @@ button.danger { border-color: var(--crit); color: var(--crit); }
   font-size: 22px; color: var(--ok);
 }
 .body { flex: 1; min-width: 0; }
+.delete {
+  order: 3; /* sits at the right end of the row */
+  flex: none;
+  width: 44px; height: 44px; padding: 0;
+  border-radius: 8px;
+  font-size: 18px; color: var(--muted);
+  background: transparent;
+}
+.delete:active { color: var(--crit); border-color: var(--crit); }
 .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 13px; color: var(--muted); }
 .num { color: var(--text); font-weight: 700; }
 .badge { font-weight: 700; color: var(--norm); }

@@ -96,3 +96,9 @@ test('parseFinding: full example', () => {
   assert.equal(r.ata.chapter, '33');
   assert.equal(r.zone.label, 'Door L3');
 });
+
+test('zone: Boeing 737 has 2 doors (L2 is aft)', () => {
+  const z = detectZone('slide door L2', AIRCRAFT.B737);
+  assert.equal(z.label, 'Door L2');
+  assert.ok(z.pos > 0.9);
+});
