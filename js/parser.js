@@ -163,14 +163,14 @@ const ATA_RULES = [
   { chapter: '25', title: 'Emergency Equipment', re: wordRegex(['escorregadeira', 'slide', 'colete', 'life vest', 'lifevest', 'lanterna', 'flashlight']) },
   { chapter: '33', title: 'Lights', re: wordRegex(['luz', 'lampada', 'iluminacao', 'light', 'lamp', 'sign', 'placa', 'aviso luminoso']) },
   { chapter: '38', title: 'Water / Waste', re: wordRegex(['descarga', 'vaso', 'privada', 'pia', 'torneira', 'agua', 'esgoto', 'ralo', 'flush', 'sink', 'faucet', 'water', 'drain']) },
-  { chapter: '44', title: 'Cabin Systems / IFE', re: wordRegex(['tela', 'monitor', 'entretenimento', 'ife', 'fone', 'headset', 'controle remoto', 'handset', 'screen', 'usb', 'tomada', 'power outlet']) },
+  { chapter: '44', title: 'Cabin Systems / IFE', re: wordRegex(['tela', 'monitor', 'entretenimento', 'ife', 'fone', 'headset', 'controle remoto', 'handset', 'screen', 'usb', 'tomada', 'tomada sem energia', 'power outlet']) },
   { chapter: '23', title: 'Communications', re: wordRegex(['interfone', 'interphone', 'sistema de som', 'pa system', 'chamada', 'attendant call', 'call button']) },
   { chapter: '21', title: 'Air Conditioning', re: wordRegex(['gasper', 'ventilacao', 'ar condicionado', 'air conditioning', 'temperatura', 'temperature']) },
   { chapter: '25', title: 'Equipment / Furnishings', re: wordRegex([
     'poltrona', 'assento', 'braco', 'apoio de braco', 'mesinha', 'mesa', 'encosto', 'reclinar', 'cinto',
     'seat', 'armrest', 'tray table', 'tray', 'recline', 'seat belt', 'seatbelt',
-    'galley', 'forno', 'oven', 'cafeteira', 'coffee', 'chiller', 'trolley', 'carrinho',
-    'carpete', 'carpet', 'bagageiro', 'bin', 'cortina', 'curtain', 'painel', 'panel', 'lixo', 'trash',
+    'galley', 'forno', 'oven', 'cafeteira', 'coffee', 'chiller', 'trolley', 'carrinho', 'carrinho emperrado',
+    'carpete', 'carpet', 'bagageiro', 'bagageiro nao fecha', 'bin', 'cortina', 'cortina solta', 'curtain', 'painel', 'panel', 'lixo', 'trash',
   ]) },
   { chapter: '52', title: 'Doors', re: wordRegex(['porta', 'door', 'macaneta', 'handle']) },
 ];

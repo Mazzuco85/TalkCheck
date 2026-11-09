@@ -86,6 +86,31 @@ test('ATA: chapter suggestions', () => {
   assert.equal(suggestAta('detector de fumaça').chapter, '26');
 });
 
+test('ATA: Portuguese cabin technician keywords (exact phrases)', () => {
+  const cases = [
+    ['trolley', '25'],
+    ['carrinho emperrado', '25'],
+    ['bagageiro não fecha', '25'],
+    ['cortina solta', '25'],
+    ['tomada sem energia', '44'],
+  ];
+  for (const [text, chapter] of cases) {
+    assert.equal(suggestAta(text)?.chapter, chapter, `"${text}" should map to ATA ${chapter}`);
+  }
+});
+
+test('ATA: Portuguese cabin technician keywords in context', () => {
+  const cases = [
+    ['carrinho emperrado no galley traseiro', '25'],
+    ['bagageiro não fecha na fileira 22', '25'],
+    ['cortina solta na porta L2', '25'],
+    ['tomada sem energia na 18C', '44'],
+  ];
+  for (const [text, chapter] of cases) {
+    assert.equal(suggestAta(text)?.chapter, chapter, `"${text}" should map to ATA ${chapter}`);
+  }
+});
+
 test('ATA: unknown returns null', () => {
   assert.equal(suggestAta('nada a ver'), null);
 });
