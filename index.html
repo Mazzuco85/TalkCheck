@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TalkCheck</title>
+  <meta name="description" content="Voice-based defect logging for aircraft cabin checks. Offline, nothing stored.">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="TalkCheck">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header>
+    <h1>TalkCheck</h1>
+    <select id="aircraft" aria-label="Aircraft type"></select>
+  </header>
+
+  <section class="map" aria-label="Cabin map">
+    <div class="fuselage">
+      <span class="nose">FWD</span>
+      <div id="map-dots"></div>
+      <span class="tail">AFT</span>
+    </div>
+  </section>
+
+  <form id="entry-form" autocomplete="off">
+    <input id="entry-input" type="text" enterkeyhint="send" autofocus
+           placeholder="🎙️ Speak or type a finding">
+    <button type="submit">Add</button>
+  </form>
+
+  <div class="toolbar">
+    <span id="counts"></span>
+    <label><input id="filter-open" type="checkbox"> Open only</label>
+    <button id="btn-copy" type="button">Copy all</button>
+    <button id="btn-reset" type="button" class="danger">New check</button>
+  </div>
+
+  <ol id="list"></ol>
+
+  <footer>Personal note-taking aid. Does not replace official maintenance records. Nothing is stored or sent.</footer>
+  <div id="toast" role="status" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

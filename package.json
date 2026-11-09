@@ -1,0 +1,13 @@
+{
+  "name": "talkcheck",
+  "version": "0.1.0",
+  "description": "Voice-based defect logging for aircraft cabin walkaround checks. Offline web app.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "start": "npx --yes serve ."
+  },
+  "author": "Wilson Mazzuco Junior",
+  "license": "MIT"
+}
