@@ -9,6 +9,12 @@ const state = {
   items: [],
   nextId: 1,
   filter: 'all', // all | open
+  lang: 'pt-BR', // in-app speech recognition language
+};
+
+const LANGUAGES = {
+  'pt-BR': { short: 'PT', name: 'Portuguese (PT)' },
+  'en-US': { short: 'EN', name: 'English (US)' },
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -24,6 +30,8 @@ const els = {
   reset: $('#btn-reset'),
   toast: $('#toast'),
   mic: $('#btn-mic'),
+  micRow: $('.mic-row'),
+  lang: $('#btn-lang'),
   autoAdd: $('#auto-add'),
 };
 
@@ -160,8 +168,22 @@ els.input.addEventListener('input', () => {
 
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+function renderLang() {
+  const lang = LANGUAGES[state.lang];
+  els.lang.textContent = lang.short;
+  els.lang.title = `Speech language: ${lang.name}`;
+  els.lang.setAttribute('aria-label', `Speech language: ${lang.name}. Tap to switch.`);
+}
+
+// Toggle applies to the next mic session; the default is Portuguese.
+els.lang.addEventListener('click', () => {
+  state.lang = state.lang === 'pt-BR' ? 'en-US' : 'pt-BR';
+  renderLang();
+  toast(`Speech language: ${LANGUAGES[state.lang].name}`);
+});
+
 if (!Recognition) {
-  els.mic.hidden = true;
+  els.micRow.hidden = true;
 } else {
   // iOS Safari does not always fire `onend` after a result, which used to leave
   // the app thinking it was still listening (the next tap did nothing).
@@ -195,7 +217,7 @@ if (!Recognition) {
     teardown(); // always discard any previous session first
 
     const session = new Recognition();
-    session.lang = 'pt-BR';
+    session.lang = state.lang;
     session.interimResults = true;
     session.continuous = false; // stops by itself after a pause
 
@@ -300,4 +322,5 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 
+renderLang();
 render();
