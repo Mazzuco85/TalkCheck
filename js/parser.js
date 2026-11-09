@@ -24,17 +24,84 @@ function wordRegex(words) {
 }
 
 // ---------------------------------------------------------------------------
+// Phonetic alphabet (NATO) — spoken letters become single letters
+// ---------------------------------------------------------------------------
+
+// Portuguese and English spellings plus common dictation variants.
+const PHONETIC_ALPHABET = {
+  alfa: 'a', alpha: 'a',
+  bravo: 'b',
+  charlie: 'c',
+  delta: 'd',
+  eco: 'e', echo: 'e',
+  foxtrot: 'f',
+  golf: 'g',
+  hotel: 'h',
+  india: 'i',
+  juliet: 'j', juliete: 'j',
+  kilo: 'k', quilo: 'k',
+  lima: 'l',
+  mike: 'm', maike: 'm',
+  november: 'n',
+  oscar: 'o',
+  papa: 'p',
+  quebec: 'q',
+  romeo: 'r',
+  sierra: 's',
+  tango: 't',
+  uniform: 'u',
+  victor: 'v',
+  whiskey: 'w', uisque: 'w',
+  xray: 'x', 'x-ray': 'x',
+  yankee: 'y', ianque: 'y',
+  zulu: 'z',
+};
+
+// Zone words after which a phonetic word is expected to be a letter.
+const PHONETIC_ZONE_WORDS = new Set([
+  'fileira', 'row', 'poltrona', 'seat', 'porta', 'door',
+  'galley', 'lav', 'lavatorio', 'banheiro',
+]);
+
+const tokenCore = (token) => token.replace(/^[^a-z0-9-]+|[^a-z0-9-]+$/g, '');
+
+/**
+ * Replaces spoken phonetic-alphabet words with single letters, but only where
+ * a letter is expected: next to a number ("23 Charlie") or right after a zone
+ * word ("porta Lima", "galley Bravo"). Ordinary words such as "hotel" in a
+ * sentence are left untouched.
+ */
+export function expandPhonetics(text) {
+  const tokens = normalize(text).split(' ').filter(Boolean);
+
+  return tokens
+    .map((token, i) => {
+      const letter = PHONETIC_ALPHABET[tokenCore(token)];
+      if (!letter) return token;
+
+      const prev = i > 0 ? tokenCore(tokens[i - 1]) : '';
+      const next = i < tokens.length - 1 ? tokenCore(tokens[i + 1]) : '';
+      const nearNumber = /^\d+$/.test(prev) || /^\d+$/.test(next);
+      const afterZone = PHONETIC_ZONE_WORDS.has(prev);
+
+      return nearNumber || afterZone ? letter : token;
+    })
+    .join(' ');
+}
+
+// ---------------------------------------------------------------------------
 // Zone detection
 // ---------------------------------------------------------------------------
 
 const FLIGHT_DECK = wordRegex(['cockpit', 'flight deck', 'cabine de comando', 'cabine de pilotagem']);
-const ROW_KEYWORD = /\b(?:fileira|fila|row|poltrona|assento|seat|banco|cadeira)\s*(\d{1,2})([a-k])?\b/;
-const BARE_SEAT = /\b(\d{1,2})([a-k])\b/; // e.g. "23c"
+const ROW_KEYWORD = /\b(?:fileira|fila|row|poltrona|assento|seat|banco|cadeira)\s*(\d{1,2})\s*([a-k])?\b/;
+const BARE_SEAT = /\b(\d{1,2})\s*([a-k])\b/; // e.g. "23c" / "23 c"
 const PREP_ROW = /\b(?:na|no|em|perto da|perto do|at|near)\s+(\d{1,2})([a-k])?\b/; // e.g. "na 12"
-const LAV = /\b(?:lav|lavatorio|lavatory|banheiro|toalete|toilet)\s*([lr])?\s*-?\s*(\d)?\b/;
+const LAV = /\b(?:lav|lavatorio|lavatory|banheiro|toalete|toilet)\s*(?:([a-z])(?![a-z]))?\s*-?\s*(\d)?\b/;
 const GALLEY = /\b(?:galley|galei|cozinha)\b/;
+const GALLEY_LETTER = /\b(?:galley|galei|cozinha)\s*([a-z])(?![a-z])/;
 const DOOR_KEYWORD = /\b(?:porta|door|saida|exit)\s*([lr])\s*-?\s*(\d)\b/;
-const BARE_DOOR = /\b([lr])\s*-?\s*(\d)\b/; // e.g. "L2"
+const BARE_DOOR = /\b([lr])\s*-?\s*(\d)\b/; // e.g. "L2" / "L 2"
 const FWD = /\b(?:dianteir[oa]|da frente|frontal|forward|fwd)\b/;
 const MID = /\b(?:do meio|central|meio|mid|middle)\b/;
 const AFT = /\b(?:traseir[oa]|do fundo|de tras|aft|rear)\b/;
@@ -77,7 +144,8 @@ function rowZone(match, aircraft) {
  * @returns {{type:string,label:string,pos:number|null,side:string|null}|null}
  */
 export function detectZone(text, aircraft = AIRCRAFT[DEFAULT_AIRCRAFT]) {
-  const t = normalize(text);
+  // Phonetic letters must become plain letters before any zone detection.
+  const t = expandPhonetics(text);
   let m;
 
   if (FLIGHT_DECK.test(t)) {
@@ -101,6 +169,10 @@ export function detectZone(text, aircraft = AIRCRAFT[DEFAULT_AIRCRAFT]) {
     if (FWD.test(t)) return { type: 'galley', label: 'Fwd galley', pos: 0.05, side: null };
     if (MID.test(t)) return { type: 'galley', label: 'Mid galley', pos: 0.5, side: null };
     if (AFT.test(t)) return { type: 'galley', label: 'Aft galley', pos: 0.95, side: null };
+    const g = t.match(GALLEY_LETTER);
+    if (g) {
+      return { type: 'galley', label: `Galley ${g[1].toUpperCase()}`, pos: null, side: null };
+    }
     const d = t.match(BARE_DOOR);
     if (d) {
       return { type: 'galley', label: `Galley ${d[2]}`, pos: doorPosition(Number(d[2]), aircraft), side: null };
@@ -162,7 +234,7 @@ const ATA_RULES = [
   { chapter: '26', title: 'Fire Protection', re: wordRegex(['fumaca', 'smoke', 'extintor', 'extinguisher', 'fogo', 'fire']) },
   { chapter: '25', title: 'Emergency Equipment', re: wordRegex(['escorregadeira', 'slide', 'colete', 'life vest', 'lifevest', 'lanterna', 'flashlight']) },
   { chapter: '33', title: 'Lights', re: wordRegex(['luz', 'lampada', 'iluminacao', 'light', 'lamp', 'sign', 'placa', 'aviso luminoso']) },
-  { chapter: '38', title: 'Water / Waste', re: wordRegex(['descarga', 'vaso', 'privada', 'pia', 'torneira', 'agua', 'esgoto', 'ralo', 'flush', 'sink', 'faucet', 'water', 'drain']) },
+  { chapter: '38', title: 'Water / Waste', re: wordRegex(['descarga', 'vaso', 'privada', 'pia', 'torneira', 'agua', 'esgoto', 'ralo', 'entupido', 'clogged', 'blocked', 'flush', 'sink', 'faucet', 'water', 'drain']) },
   { chapter: '44', title: 'Cabin Systems / IFE', re: wordRegex(['tela', 'monitor', 'entretenimento', 'ife', 'fone', 'headset', 'controle remoto', 'handset', 'screen', 'usb', 'tomada', 'tomada sem energia', 'power outlet']) },
   { chapter: '23', title: 'Communications', re: wordRegex(['interfone', 'interphone', 'sistema de som', 'pa system', 'chamada', 'attendant call', 'call button']) },
   { chapter: '21', title: 'Air Conditioning', re: wordRegex(['gasper', 'ventilacao', 'ar condicionado', 'air conditioning', 'temperatura', 'temperature']) },

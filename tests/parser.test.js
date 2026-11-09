@@ -1,7 +1,7 @@
 // Run with: node --test   (Node 18+, no dependencies)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, detectZone, detectPriority, suggestAta, parseFinding, PRIORITY } from '../js/parser.js';
+import { normalize, expandPhonetics, detectZone, detectPriority, suggestAta, parseFinding, PRIORITY } from '../js/parser.js';
 import { AIRCRAFT } from '../js/aircraft.js';
 
 const B787 = AIRCRAFT.B787;
@@ -126,4 +126,53 @@ test('zone: Boeing 737 has 2 doors (L2 is aft)', () => {
   const z = detectZone('slide door L2', AIRCRAFT.B737);
   assert.equal(z.label, 'Door L2');
   assert.ok(z.pos > 0.9);
+});
+
+// ---------------------------------------------------------------------------
+// Phonetic alphabet
+// ---------------------------------------------------------------------------
+
+test('phonetic: spoken seat letter becomes Row 23C', () => {
+  const z = detectZone('fileira 23 Charlie', B787);
+  assert.equal(z.type, 'seat');
+  assert.equal(z.label, 'Row 23C');
+  assert.equal(z.side, 'L');
+});
+
+test('phonetic: spoken door letter becomes Door L2', () => {
+  const z = detectZone('porta Lima 2', B787);
+  assert.equal(z.type, 'door');
+  assert.equal(z.label, 'Door L2');
+});
+
+test('phonetic: lavatory letter plus "entupido" gives Lav A + ATA 38', () => {
+  const text = 'lavatório Alfa entupido';
+  const z = detectZone(text, B787);
+  assert.equal(z.type, 'lav');
+  assert.equal(z.label, 'Lav A');
+  assert.equal(suggestAta(text).chapter, '38');
+});
+
+test('phonetic: lavatory letter after "banheiro" gives Lav D', () => {
+  assert.equal(detectZone('banheiro Delta', B787).label, 'Lav D');
+});
+
+test('phonetic: galley letter gives Galley B', () => {
+  assert.equal(detectZone('galley Bravo', B787).label, 'Galley B');
+});
+
+test('phonetic: ordinary word "hotel" in a sentence is not changed', () => {
+  assert.equal(expandPhonetics('o hotel do aeroporto estava limpo'), 'o hotel do aeroporto estava limpo');
+  assert.equal(detectZone('o hotel do aeroporto estava limpo', B787), null);
+});
+
+test('zone: spaces before seat letter and door number are accepted', () => {
+  assert.equal(detectZone('fileira 23 C', B787).label, 'Row 23C');
+  assert.equal(detectZone('porta L 2', B787).label, 'Door L2');
+});
+
+test('ATA: clogged/blocked synonyms also map to chapter 38', () => {
+  for (const word of ['entupido', 'clogged', 'blocked']) {
+    assert.equal(suggestAta(`lavatorio ${word}`)?.chapter, '38', `"${word}" should map to ATA 38`);
+  }
 });
