@@ -65,12 +65,10 @@ button.danger { border-color: var(--crit); color: var(--crit); }
 .dot.cosmetic { background: var(--cosm); }
 .dot.done { background: var(--ok); opacity: .6; }
 
-/* In-app mic */
-.mic-row { display: flex; gap: 10px; margin-bottom: 10px; }
-.mic-row[hidden] { display: none; }
+/* Mic button: focuses the input so the keyboard's own dictation can be used. */
+.mic-row { margin-bottom: 10px; }
 #btn-mic {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   min-height: 72px;
   font-size: 20px;
   font-weight: 700;
@@ -78,39 +76,8 @@ button.danger { border-color: var(--crit); color: var(--crit); }
   color: #0f172a;
   border: 0;
 }
-#btn-mic.listening { background: var(--crit); color: #fff; animation: pulse 1.2s infinite; }
-#btn-mic.listening span::after { content: ' — listening…'; }
-#btn-mic[hidden] { display: none; }
-
-/* PT/EN toggle: 72px square keeps it comfortably touch-sized. */
-#btn-lang {
-  flex: none;
-  width: 72px;
-  min-height: 72px;
-  padding: 0;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: .5px;
-  color: var(--accent);
-  background: var(--panel);
-  border: 2px solid var(--line);
-}
-#btn-lang:active { border-color: var(--accent); }
-#btn-lang[hidden] { display: none; }
-@keyframes pulse { 50% { opacity: .7; } }
-
-/* Temporary on-phone speech diagnostics. */
-.mic-debug {
-  margin: -4px 0 10px;
-  padding: 6px 8px;
-  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--muted);
-  background: var(--panel);
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  overflow-wrap: anywhere;
-}
-.mic-debug[hidden] { display: none; }
+.mic-hint { margin: 0 0 10px; font-size: 14px; color: var(--accent); }
+.mic-hint[hidden] { display: none; }
 
 /* Entry */
 #entry-form { display: flex; gap: 8px; }

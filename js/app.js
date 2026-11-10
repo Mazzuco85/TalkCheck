@@ -9,12 +9,6 @@ const state = {
   items: [],
   nextId: 1,
   filter: 'all', // all | open
-  lang: 'pt-BR', // in-app speech recognition language
-};
-
-const LANGUAGES = {
-  'pt-BR': { short: 'PT', name: 'Portuguese (PT)' },
-  'en-US': { short: 'EN', name: 'English (US)' },
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -30,14 +24,14 @@ const els = {
   reset: $('#btn-reset'),
   toast: $('#toast'),
   mic: $('#btn-mic'),
-  micRow: $('.mic-row'),
-  micDebug: $('#mic-debug'),
-  lang: $('#btn-lang'),
+  micHint: $('#mic-hint'),
   autoAdd: $('#auto-add'),
 };
 
 // Time without new text before a dictated finding is added automatically.
 const AUTO_ADD_DELAY_MS = 2000;
+// How long the keyboard-dictation hint stays visible after tapping the mic.
+const MIC_HINT_MS = 4000;
 
 const PRIORITY_ORDER = { [PRIORITY.CRITICAL]: 0, [PRIORITY.NORMAL]: 1, [PRIORITY.COSMETIC]: 2 };
 const PRIORITY_LABEL = { critical: 'CRIT', normal: 'NORM', cosmetic: 'COSM' };
@@ -162,160 +156,19 @@ els.input.addEventListener('input', () => {
   autoAddTimer = setTimeout(submitInput, AUTO_ADD_DELAY_MS);
 });
 
-// --- In-app mic (Web Speech API) -------------------------------------------
-// One tap: listen → add automatically when speech ends.
-// Browser speech recognition may need a network connection; keyboard
-// dictation remains the offline fallback.
+// --- Keyboard dictation ---------------------------------------------------
+// Hand speech off to the keyboard's built-in dictation: it works offline and
+// follows the keyboard's language (globe key). The `input` handler above adds
+// the text automatically once the dictation pause stops producing new words.
 
-const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let micHintTimer;
 
-function renderLang() {
-  const lang = LANGUAGES[state.lang];
-  els.lang.textContent = lang.short;
-  els.lang.title = `Speech language: ${lang.name}`;
-  els.lang.setAttribute('aria-label', `Speech language: ${lang.name}. Tap to switch.`);
-}
-
-// Toggle applies to the next mic session; the default is Portuguese.
-els.lang.addEventListener('click', () => {
-  state.lang = state.lang === 'pt-BR' ? 'en-US' : 'pt-BR';
-  renderLang();
-  toast(`Speech language: ${LANGUAGES[state.lang].name}`);
+els.mic.addEventListener('click', () => {
+  els.input.focus();
+  els.micHint.hidden = false;
+  clearTimeout(micHintTimer);
+  micHintTimer = setTimeout(() => (els.micHint.hidden = true), MIC_HINT_MS);
 });
-
-if (!Recognition) {
-  els.micRow.hidden = true;
-} else {
-  // iOS Safari gets into a bad state when start() is called again too soon
-  // after the previous session was aborted. Reuse one recognizer for the whole
-  // page and pause briefly between sessions.
-  const RESTART_DELAY_MS = 300;
-  const NO_RESULT_MS = 8000;
-  const DEBUG_LIMIT = 8;
-
-  const rec = new Recognition();
-  rec.interimResults = true;
-  rec.continuous = false; // stops by itself after a pause
-
-  let listening = false;
-  let sawStart = false;
-  let noResultTimer = null;
-  let restartTimer = null;
-  let stoppedAt = 0; // when the last session was aborted/stopped
-  const debugEvents = [];
-
-  // Temporary on-phone diagnostics: last few speech events.
-  function debugEvent(text) {
-    const at = new Date().toLocaleTimeString();
-    debugEvents.push(`${at} ${text}`);
-    if (debugEvents.length > DEBUG_LIMIT) debugEvents.shift();
-    if (els.micDebug) els.micDebug.textContent = debugEvents.join(' · ');
-  }
-
-  if (els.micDebug) {
-    els.micDebug.hidden = false;
-    els.micDebug.textContent = 'mic: no events yet';
-  }
-
-  function setListeningUI(on) {
-    els.mic.classList.toggle('listening', on);
-    els.mic.setAttribute('aria-pressed', on ? 'true' : 'false');
-  }
-
-  function clearNoResultTimer() {
-    clearTimeout(noResultTimer);
-    noResultTimer = null;
-  }
-
-  function armNoResultTimer() {
-    clearNoResultTimer();
-    noResultTimer = setTimeout(() => {
-      debugEvent('timeout');
-      finish('timeout');
-    }, NO_RESULT_MS);
-  }
-
-  function stopRecognition() {
-    try { rec.abort(); } catch { /* already stopped */ }
-  }
-
-  // Adds whatever was heard (once) and resets the mic. `stoppedAt` makes the
-  // next start wait before touching the recognizer again.
-  function finish(reason = 'manual') {
-    if (!listening) return;
-    listening = false;
-    clearNoResultTimer();
-    const text = els.input.value.trim();
-    if (reason !== 'end') stopRecognition();
-    stoppedAt = Date.now();
-    setListeningUI(false);
-    if (text) {
-      addFinding(text);
-      els.input.value = '';
-    }
-  }
-
-  function startListening() {
-    if (listening || restartTimer) return;
-
-    const wait = Math.max(0, RESTART_DELAY_MS - (Date.now() - stoppedAt));
-    if (wait > 0) {
-      restartTimer = setTimeout(() => {
-        restartTimer = null;
-        startListening();
-      }, wait);
-      return;
-    }
-
-    rec.lang = state.lang;
-    listening = true;
-    sawStart = false;
-    setListeningUI(true);
-    armNoResultTimer();
-    try {
-      rec.start();
-    } catch {
-      listening = false;
-      clearNoResultTimer();
-      stoppedAt = Date.now();
-      stopRecognition();
-      setListeningUI(false);
-      toast('Mic busy — tap again');
-    }
-  }
-
-  rec.onstart = () => {
-    sawStart = true;
-    debugEvent('start');
-  };
-  rec.onaudiostart = () => debugEvent('audiostart');
-  rec.onspeechstart = () => debugEvent('speechstart');
-  rec.onresult = (e) => {
-    const results = Array.from(e.results);
-    const last = results[results.length - 1];
-    debugEvent(`result${last?.isFinal ? '(final)' : ''}`);
-    els.input.value = results.map((r) => r[0].transcript).join(' ');
-    if (last?.isFinal) finish('result');
-    else armNoResultTimer();
-  };
-  rec.onerror = (e) => {
-    debugEvent(`error ${e.error}`);
-    if (e.error === 'network') toast('Mic needs internet — use the keyboard mic');
-    else if (e.error === 'not-allowed') toast('Microphone permission denied');
-    else if (e.error !== 'no-speech' && e.error !== 'aborted') toast(`Mic error: ${e.error}`);
-    finish('error');
-  };
-  // Some browsers end without a final result: keep what was heard. Ignore an
-  // `end` that arrives before the new session's own `start` (stale event).
-  rec.onend = () => {
-    debugEvent('end');
-    if (listening && !sawStart) return;
-    finish('end');
-  };
-
-  // Tap while idle → start. Tap while listening → stop and keep what was heard.
-  els.mic.addEventListener('click', () => (listening ? finish() : startListening()));
-}
 
 els.list.addEventListener('click', (e) => {
   const btn = e.target.closest('.check, .delete');
@@ -389,5 +242,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 
-renderLang();
 render();

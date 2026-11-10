@@ -28,16 +28,15 @@
   </section>
 
   <div class="mic-row">
-    <button id="btn-mic" type="button" aria-pressed="false">🎙️ <span>Tap and speak</span></button>
-    <button id="btn-lang" type="button" aria-label="Speech language: Portuguese (PT)" title="Speech language: Portuguese (PT)">PT</button>
+    <button id="btn-mic" type="button" aria-label="Dictate with the keyboard microphone">🎙️ <span>Tap and speak</span></button>
   </div>
-  <div id="mic-debug" class="mic-debug" hidden aria-live="polite"></div>
 
   <form id="entry-form" autocomplete="off">
     <input id="entry-input" type="text" enterkeyhint="send" autofocus
            placeholder="Or type / use keyboard mic">
     <button type="submit">Add</button>
   </form>
+  <p id="mic-hint" class="mic-hint" hidden aria-live="polite">Tap 🎤 on the keyboard and speak</p>
 
   <div class="toolbar">
     <span id="counts"></span>
