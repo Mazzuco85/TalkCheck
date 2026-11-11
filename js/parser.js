@@ -60,7 +60,7 @@ const PHONETIC_ALPHABET = {
 // Zone words after which a phonetic word is expected to be a letter.
 const PHONETIC_ZONE_WORDS = new Set([
   'fileira', 'row', 'poltrona', 'seat', 'porta', 'door',
-  'galley', 'lav', 'lavatorio', 'banheiro',
+  'galley', 'lav', 'lavatorio', 'lavatory', 'banheiro', 'toalete', 'toilet',
 ]);
 
 const tokenCore = (token) => token.replace(/^[^a-z0-9-]+|[^a-z0-9-]+$/g, '');

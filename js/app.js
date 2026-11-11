@@ -1,7 +1,7 @@
 // TalkCheck — UI logic.
 // Findings live only in memory: nothing is saved or sent anywhere.
 
-import { parseFinding, PRIORITY } from './parser.js';
+import { normalize, parseFinding, PRIORITY } from './parser.js';
 import { AIRCRAFT, DEFAULT_AIRCRAFT } from './aircraft.js';
 
 const state = {
@@ -30,6 +30,9 @@ const els = {
 
 // Time without new text before a dictated finding is added automatically.
 const AUTO_ADD_DELAY_MS = 2000;
+// A dictation restart may repeat the previous finding. Within this window, a
+// new finding that starts with the previous text replaces it.
+const DUPLICATE_WINDOW_MS = 10000;
 // How long the keyboard-dictation hint stays visible after tapping the mic.
 const MIC_HINT_MS = 4000;
 
@@ -38,16 +41,39 @@ const PRIORITY_LABEL = { critical: 'CRIT', normal: 'NORM', cosmetic: 'COSM' };
 
 const time = (d) => d.toTimeString().slice(0, 5);
 
+let lastAdded = null; // { id, text, time } of the most recently added finding
+
 function addFinding(text) {
   const clean = text.trim();
   if (!clean) return;
-  state.items.push({
+
+  const now = new Date();
+  const previous = lastAdded && state.items.find((it) => it.id === lastAdded.id);
+  const isRepeat =
+    previous &&
+    now - lastAdded.time <= DUPLICATE_WINDOW_MS &&
+    normalize(clean).startsWith(normalize(previous.text));
+
+  if (isRepeat) {
+    Object.assign(previous, {
+      text: clean,
+      time: now,
+      ...parseFinding(clean, state.aircraft),
+    });
+    lastAdded = { id: previous.id, text: clean, time: now };
+    render();
+    return;
+  }
+
+  const item = {
     id: state.nextId++,
     text: clean,
-    time: new Date(),
+    time: now,
     done: false,
     ...parseFinding(clean, state.aircraft),
-  });
+  };
+  state.items.push(item);
+  lastAdded = { id: item.id, text: clean, time: now };
   render();
 }
 
@@ -136,11 +162,14 @@ function render() {
 
 let autoAddTimer;
 
-function submitInput() {
+function submitInput({ auto = false } = {}) {
   clearTimeout(autoAddTimer);
   addFinding(els.input.value);
   els.input.value = '';
-  els.input.focus();
+  // Blurring an auto-added entry closes the iOS keyboard and stops dictation,
+  // which would otherwise keep writing the same text into the input again.
+  if (auto) els.input.blur();
+  else els.input.focus();
 }
 
 els.form.addEventListener('submit', (e) => {
@@ -153,7 +182,7 @@ els.form.addEventListener('submit', (e) => {
 els.input.addEventListener('input', () => {
   clearTimeout(autoAddTimer);
   if (!els.autoAdd.checked || !els.input.value.trim()) return;
-  autoAddTimer = setTimeout(submitInput, AUTO_ADD_DELAY_MS);
+  autoAddTimer = setTimeout(() => submitInput({ auto: true }), AUTO_ADD_DELAY_MS);
 });
 
 // --- Keyboard dictation ---------------------------------------------------
@@ -224,6 +253,7 @@ els.reset.addEventListener('click', () => {
   if (state.items.length && !confirm('Start a new check? The current list will be cleared.')) return;
   state.items = [];
   state.nextId = 1;
+  lastAdded = null;
   render();
   els.input.focus();
 });

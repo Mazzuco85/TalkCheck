@@ -157,6 +157,12 @@ test('phonetic: lavatory letter after "banheiro" gives Lav D', () => {
   assert.equal(detectZone('banheiro Delta', B787).label, 'Lav D');
 });
 
+test('phonetic: English "lavatory" plus letter gives Lav D', () => {
+  const z = detectZone('lavatory Delta', B787);
+  assert.equal(z.type, 'lav');
+  assert.equal(z.label, 'Lav D');
+});
+
 test('phonetic: galley letter gives Galley B', () => {
   assert.equal(detectZone('galley Bravo', B787).label, 'Galley B');
 });
